@@ -31,6 +31,7 @@ This means MimicAI can automate tasks where the source application has NO API �
 | Queue / Cron     | BullMQ + Redis                                   |
 | Screen Capture   | Browser MediaStream API + periodic screenshots   |
 | Screenshot Storage | **Local temp files** (`/tmp/mimicai/`) — deleted after AI processes them |
+| Repository       | [github.com/arkhangio10/mimicAI](https://github.com/arkhangio10/mimicAI) |
 | Deployment       | Vercel (frontend) + Railway (backend workers)    |
 
 ### Key Version Notes
@@ -92,6 +93,7 @@ auth_0/
 │   │   │   │       └── route.ts  # Superseded by learning routes ⬜
 │   │   │   ├── learning/
 │   │   │   │   ├── start/route.ts     # POST: init learning from recording ✅
+│   │   │   │   ├── infer/route.ts     # POST: single-pass workflow inference ✅
 │   │   │   │   ├── answer/route.ts    # POST: submit answer, get follow-up ✅
 │   │   │   │   ├── synthesize/route.ts # POST: extract rules/variables ✅
 │   │   │   │   ├── status/route.ts    # GET: learning session status ✅
@@ -105,8 +107,8 @@ auth_0/
 │   │   ├── ui/                # shadcn/ui primitives (Radix UI + Tailwind v3) ✅
 │   │   │   ├── button.tsx, card.tsx, input.tsx, badge.tsx ✅
 │   │   │   ├── dropdown-menu.tsx, avatar.tsx, separator.tsx ✅
-│   │   │   ├── skeleton.tsx, tooltip.tsx ✅
-│   │   │   └── dialog.tsx, sheet.tsx, tabs.tsx, textarea.tsx ⬜
+│   │   │   ├── skeleton.tsx, tooltip.tsx, progress.tsx, scroll-area.tsx ✅
+│   │   │   └── dialog.tsx, tabs.tsx, textarea.tsx ✅
 │   │   ├── recorder/
 │   │   │   ├── ScreenCapture.tsx  # Live preview + recording controls + stats ✅
 │   │   │   ├── ActionTimeline.tsx # Scrollable action list + extracted data preview ✅
@@ -880,8 +882,6 @@ All models have proper indexes on foreign keys and query fields. Uses `prisma-cl
 8. ✅ Custom error classes
 9. ✅ Build passing (`npx next build` succeeds)
 
-**Remaining for Phase 1:** Run `npx prisma migrate dev` once PostgreSQL is available.
-
 ### Phase 2 — Screen Recording & Visual Data Extraction ✅ REDESIGNED
 1. ✅ `useScreenCapture` hook — `getDisplayMedia()` + periodic JPEG capture every 2s + start/stop/pause/resume
 2. ✅ Screenshot pipeline — client captures frame → POST `/api/capture` → saves to `tmp/screenshots/` → AI provider interprets → action returned → temp file cleaned up on session end
@@ -931,8 +931,9 @@ All models have proper indexes on foreign keys and query fields. Uses `prisma-cl
 1. ✅ Landing page — full-width hero with gradient, how-it-works, differentiators, live Q&A example, Auth0 Token Vault section, AI providers, CTA
 2. ✅ 3-minute demo video script — `docs/DEMO_SCRIPT.md` with timed sections, speaker notes, and demo tips
 3. ✅ Blog post draft — `docs/BLOG_POST.md` — "The Screen Is the Only API You Need"
-4. ✅ README with setup instructions — complete with prerequisites, env vars, Auth0 config, project structure, deployment guide
-5. Deploy to Vercel + Railway — ready to deploy (environment-dependent, not automatable here)
+4. ✅ README with setup instructions — complete with prerequisites, env vars, Auth0 config, project structure, deployment guide + Bonus Blog Post section
+5. ✅ GitHub repository — [github.com/arkhangio10/mimicAI](https://github.com/arkhangio10/mimicAI)
+6. Deploy to Vercel + Railway — ready to deploy (environment-dependent)
 
 ## Key Commands
 
@@ -953,7 +954,7 @@ npm run build            # Build (currently passing ✅)
 npm run start
 ```
 
-## Current Architecture Decisions (Session 2026-04-05)
+## Current Architecture Decisions (Updated 2026-04-06)
 
 ### Collect-Then-Process Recording Flow
 Screenshots are collected locally in the browser during recording (every 3s, max 2 min). Zero API calls during recording. After stop, all screenshots are batch-sent to AI with a progress bar. This replaced the original real-time processing which was fragile (hot-reloads killed in-memory sessions, API calls slowed capture).
