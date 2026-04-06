@@ -8,7 +8,7 @@ You are the lead engineer building **MimicAI**, a platform where users record th
 
 MimicAI captures user screen activity in real-time, using AI Vision (Gemini, OpenAI, or Claude — user chooses) not just to understand WHAT the user is doing, but to READ THE ACTUAL DATA visible on screen. The screen is the data source — no file exports, no CSVs, no copy-paste. AI Vision extracts numbers, text, tables, and values directly from pixels, just like a human apprentice looking over your shoulder.
 
-The platform then asks clarifying questions like a curious child ("Why did you put that number there?"), learns the full workflow, and produces replayable automations. Creators sell these automations on a marketplace where buyers install them and run them on their own connected accounts via Auth0 Token Vault.
+The platform uses **"Infer First, Ask Later"** — instead of asking dozens of questions, AI analyzes the entire recording in one shot, infers the complete workflow (steps, rules, variables, edge cases), and presents its understanding for the user to review and confirm. Creators sell these automations on a marketplace where buyers install them and run them on their own connected accounts via Auth0 Token Vault.
 
 ### The Two Modes of Screen Reading
 
@@ -22,107 +22,160 @@ This means MimicAI can automate tasks where the source application has NO API �
 
 | Layer            | Technology                                      |
 | ---------------- | ----------------------------------------------- |
-| Frontend         | Next.js 14 (App Router), React 18, Tailwind CSS |
+| Frontend         | Next.js 14.2.35 (App Router), React 18, Tailwind CSS 3.4 |
 | Backend API      | Next.js API Routes + Node.js                    |
-| AI Engine        | **Multi-provider** — Gemini 2.5 Flash (default, cheapest), OpenAI GPT-4o, Claude Sonnet 4 |
-| Auth & Tokens    | Auth0 for AI Agents — Token Vault               |
-| Database         | PostgreSQL (Prisma ORM)                          |
+| UI Components    | shadcn/ui (Radix UI primitives, Tailwind v3 compatible) |
+| AI Engine        | **Multi-provider** — Gemini 2.5 Flash (default), OpenAI GPT-4o, Claude Sonnet 4 |
+| Auth & Tokens    | Auth0 for AI Agents v4 (`@auth0/nextjs-auth0@4.x`) — Token Vault |
+| Database         | PostgreSQL (Prisma 6 ORM, `prisma-client-js`)   |
 | Queue / Cron     | BullMQ + Redis                                   |
 | Screen Capture   | Browser MediaStream API + periodic screenshots   |
 | Screenshot Storage | **Local temp files** (`/tmp/mimicai/`) — deleted after AI processes them |
 | Deployment       | Vercel (frontend) + Railway (backend workers)    |
 
+### Key Version Notes
+- **Prisma 6** (not 7) �� Prisma 7 uses ESM-only `prisma-client` generator which is incompatible with Next.js 14's webpack. We use `prisma-client-js` generator.
+- **Auth0 SDK v4** — Uses `Auth0Client` from `@auth0/nextjs-auth0/server` (NOT the v3 `initAuth0`). Auth routes are handled via `middleware.ts`, not catch-all API routes.
+- **Tailwind v3** — shadcn/ui components are written for Tailwind v3 with Radix UI (`@radix-ui/react-*`). NOT the v4 `@base-ui/react` variants.
+- **AI SDKs installed**: `@google/generative-ai`, `openai`, `@anthropic-ai/sdk`
+
 ## Directory Structure
 
+Files marked with `✅` exist and are implemented. Files marked with `⬜` are planned but not yet created.
+
 ```
-mimicai/
-├── CLAUDE.md                  # This file — master prompt
-├── RULES.md                   # Coding standards and conventions
+auth_0/
+├── CLAUDE.md                  # This file — master prompt ✅
+├── RULES.md                   # Coding standards and conventions ✅
+├── ARCHITECTURE.md            # System architecture document ✅
 ├── docs/
-│   └── ARCHITECTURE.md        # System architecture document
+│   └── ARCHITECTURE.md        # Copy of architecture doc ✅
 ├── src/
+│   ├── middleware.ts           # Auth0 v4 middleware (handles /auth/* routes) ✅
 │   ├── app/                   # Next.js App Router pages
-│   │   ├── layout.tsx
-│   │   ├── page.tsx           # Landing / dashboard
+│   │   ├── layout.tsx         # Root layout with Navbar + TooltipProvider ✅
+│   │   ├── globals.css        # Tailwind v3 + CSS variables (HSL) ✅
+│   │   ├── page.tsx           # Dashboard with quick actions + how-it-works ✅
 │   │   ├── record/
-│   │   │   └── page.tsx       # Screen recording interface
+│   │   │   └── page.tsx       # Full recording interface (capture + timeline + AI config) ✅
 │   │   ├── workflows/
-│   │   │   ├── page.tsx       # My workflows list
+│   │   │   ├── page.tsx       # My workflows list (empty state) ✅
 │   │   │   └── [id]/
-│   │   │       └── page.tsx   # Workflow detail / edit
+│   │   │       └── page.tsx   # Workflow detail: steps, rules, variables, run panel ✅
 │   │   ├── marketplace/
-│   │   │   ├── page.tsx       # Browse automations
+│   │   │   ├── page.tsx       # Browse automations with search/filter/sort ✅
 │   │   │   └── [id]/
-│   │   │       └── page.tsx   # Automation detail / install
+│   │   │       └── page.tsx   # Automation detail + install flow ✅
 │   │   ├── api/
-│   │   │   ├── auth/
-│   │   │   │   └── [...auth0]/route.ts
 │   │   │   ├── capture/
-│   │   │   │   └── route.ts   # Receives screenshots from client
+│   │   │   │   ├── route.ts   # POST: receive screenshot + AI interpret; DELETE: end session ✅
+│   │   │   │   └── stream/
+│   │   │   │       └── route.ts # GET: SSE stream for real-time action feed ✅
 │   │   │   ├── workflows/
-│   │   │   │   └── route.ts   # CRUD workflows
+│   │   │   │   ├── route.ts   # GET: list workflows; POST: create workflow ✅
+│   │   │   │   └── [id]/
+│   │   │   │       └── route.ts # GET/PATCH/DELETE: workflow detail ✅
 │   │   │   ├── marketplace/
-│   │   │   │   └── route.ts   # List / install automations
+│   │   │   │   ├── route.ts   # GET: list published automations with search/filter/sort ✅
+│   │   │   │   └── [id]/
+│   │   │   │       ├── route.ts      # GET: full marketplace listing detail ✅
+│   │   │   │       └── install/
+│   │   │   │           └── route.ts  # POST: install, DELETE: uninstall ✅
 │   │   │   ├── execute/
-│   │   │   │   └── route.ts   # Run an automation
-│   │   │   └── ai/
-│   │   │       ├── interpret/
-│   │   │       │   └── route.ts  # Claude Vision: screenshot → action
-│   │   │       └── clarify/
-│   │   │           └── route.ts  # Claude: generate clarifying questions
+│   │   │   │   ├── route.ts   # POST: start execution with variable inputs ✅
+│   │   │   │   └── [id]/
+│   │   │   │       └── route.ts # GET: execution status + progress ✅
+│   │   │   ├── ai/
+│   │   │   │   ├── interpret/
+│   │   │   │   │   └── route.ts  # AI Vision: screenshot → action ✅
+│   │   │   │   └── clarify/
+│   │   │   │       └── route.ts  # Superseded by learning routes ⬜
+│   │   │   ├── learning/
+│   │   │   │   ├── start/route.ts     # POST: init learning from recording ✅
+│   │   │   │   ├── answer/route.ts    # POST: submit answer, get follow-up ✅
+│   │   │   │   ├── synthesize/route.ts # POST: extract rules/variables ✅
+│   │   │   │   ├── status/route.ts    # GET: learning session status ✅
+│   │   │   │   ├── rules/route.ts     # PATCH: edit/delete rules ✅
+│   │   │   │   └── complete/route.ts  # POST: finalize learning ✅
+│   │   │   └── screenshots/
+│   │   │       └── [filename]/route.ts # GET: serve screenshot images ✅
 │   │   └── settings/
-│   │       └── page.tsx       # Connected services, Token Vault
+│   │       └── page.tsx       # AI provider selection + connected services ✅
 │   ├── components/
-│   │   ├── ui/                # shadcn/ui primitives
+│   │   ├── ui/                # shadcn/ui primitives (Radix UI + Tailwind v3) ✅
+│   │   │   ├── button.tsx, card.tsx, input.tsx, badge.tsx ✅
+│   │   │   ├── dropdown-menu.tsx, avatar.tsx, separator.tsx ✅
+│   │   │   ├── skeleton.tsx, tooltip.tsx ✅
+│   │   │   └── dialog.tsx, sheet.tsx, tabs.tsx, textarea.tsx ⬜
 │   │   ├── recorder/
-│   │   │   ├── ScreenCapture.tsx
-│   │   │   ├── ActionTimeline.tsx
-│   │   │   └── ClarifyDialog.tsx
+│   │   │   ├── ScreenCapture.tsx  # Live preview + recording controls + stats ✅
+│   │   │   ├── ActionTimeline.tsx # Scrollable action list + extracted data preview ✅
+│   │   │   └── ClarifyDialog.tsx     # Superseded by learning/ components ✅
+│   │   ├── learning/
+│   │   │   ├── LearningFlow.tsx      # Main learning orchestrator ✅
+│   │   │   ├── LearningProgress.tsx  # Progress bar + phase indicator ✅
+│   │   │   ├── ActionReview.tsx      # Screenshot + action context display ✅
+│   │   │   ├── ConversationPanel.tsx # Chat-style Q&A interface ✅
+│   │   │   ├── QuestionBubble.tsx    # Individual Q/A message bubble ✅
+│   │   │   ├── AnswerInput.tsx       # Textarea + submit for answers ✅
+│   │   │   ├── UnderstandingPanel.tsx # Tabbed rules/edge cases/variables/steps ✅
+│   │   │   ├── RuleCard.tsx          # Editable IF/THEN rule card ✅
+│   │   │   ├── EdgeCaseCard.tsx      # Editable WHEN/THEN edge case card ✅
+│   │   │   └── VariableCard.tsx      # Editable variable card ✅
 │   │   ├── workflows/
-│   │   │   ├── WorkflowCard.tsx
-│   │   │   ├── StepEditor.tsx
-│   │   │   └── WorkflowRunner.tsx
+│   │   │   ├── WorkflowCard.tsx   # Workflow summary card for list view ✅
+│   │   │   ├── StepEditor.tsx     # Step flow visualizer + rules + edge cases ✅
+│   │   │   └── WorkflowRunner.tsx # Variable input + execution progress UI ✅
 │   │   ├── marketplace/
-│   │   │   ├── AutomationCard.tsx
-│   │   │   └── InstallFlow.tsx
+│   │   │   ├── AutomationCard.tsx    # Marketplace listing card (name, creator, price, services) ✅
+│   │   │   └── InstallFlow.tsx       # Service connection + install/uninstall panel ✅
 │   │   └── shared/
-│   │       ├── Navbar.tsx
-│   │       ├── ServiceBadge.tsx
-│   │       └── TokenStatus.tsx
+│   │       ├── Navbar.tsx         # Navigation + user menu ✅
+│   │       ├── ServiceBadge.tsx   # Gmail/Sheets/Slack badges ✅
+│   │       └── TokenStatus.tsx    # Connection status indicator ✅
 │   ├── lib/
-│   │   ├── auth0.ts           # Auth0 SDK config + Token Vault helpers
-│   │   ├── ai/                # Multi-provider AI engine
-│   │   │   ├── provider.ts    # Provider interface + factory
-│   │   │   ├── gemini.ts      # Google Gemini adapter (default, cheapest)
-│   │   │   ├── openai.ts      # OpenAI GPT adapter
-│   │   │   ├── anthropic.ts   # Anthropic Claude adapter
-│   │   │   └── prompts.ts     # Shared system prompts (provider-agnostic)
-│   │   ├── screenshots.ts     # Temp file management (save to /tmp, cleanup)
-│   │   ├── prisma.ts          # DB client singleton
-│   │   ├── queue.ts           # BullMQ job definitions
+│   │   ├── auth0.ts           # Auth0Client + Token Vault helpers (stubbed) ✅
+│   │   ├── errors.ts          # Custom error classes ✅
+│   │   ├── prisma.ts          # DB client singleton ✅
+│   │   ├── sessions.ts        # In-memory recording session management ✅
+│   │   ├── utils.ts           # cn() helper for Tailwind ✅
+│   │   ├── ai/                # Multi-provider AI engine ✅
+│   │   │   ├── provider.ts    # AIProvider interface + createProvider factory ✅
+│   │   │   ├── gemini.ts      # Gemini 2.5 Flash adapter ✅
+│   │   │   ├── openai.ts      # GPT-4o adapter ✅
+│   │   │   ├── anthropic.ts   # Claude Sonnet 4 adapter ✅
+│   │   │   ├── prompts.ts     # Shared INTERPRET + EXTRACT + LEARNING prompts ✅
+│   │   │   └── learning.ts   # Learning AI: question gen, synthesis, variable detection ✅
+│   │   ├── learning-sessions.ts # In-memory learning session store ✅
+│   │   ├── screenshots.ts     # Temp file save/read/cleanup ✅
+│   │   ├── execution.ts       # Workflow execution engine (step runner, rule eval, service dispatch) ✅
+│   │   ├── queue.ts           # BullMQ job definitions ⬜
 │   │   └── services/
-│   │       ├── gmail.ts       # Gmail API adapter (via Token Vault)
-│   │       ├── sheets.ts      # Google Sheets adapter (via Token Vault)
-│   │       ├── slack.ts       # Slack API adapter (via Token Vault)
-│   │       └── index.ts       # Service registry
+│   │       ├── gmail.ts       # Gmail API adapter (via Token Vault) ✅
+│   │       ├── sheets.ts      # Google Sheets adapter (via Token Vault) ✅
+│   │       ├── slack.ts       # Slack API adapter (via Token Vault) ✅
+│   │       └── index.ts       # Service registry + display config ✅
 │   ├── hooks/
-│   │   ├── useScreenCapture.ts
-│   │   ├── useWorkflow.ts
-│   │   └── useTokenVault.ts
+│   │   ├── useScreenCapture.ts # MediaStream + periodic screenshot + start/stop/pause ✅
+│   │   ├── useLearning.ts     # Learning session state + API calls ✅
+│   │   ├── useWorkflow.ts ⬜  # (workflow state managed inline in detail page)
+│   │   └── useTokenVault.ts ⬜
 │   ├── types/
-│   │   ├── workflow.ts
-│   │   ├── action.ts
-│   │   └── marketplace.ts
+│   │   ├── workflow.ts        # WorkflowTemplate, WorkflowStep, LearnedRule, etc. ✅
+│   │   ├── action.ts          # CapturedAction, ExtractedData, LearnedStep, QuestionAnswer ✅
+│   │   └── marketplace.ts     # MarketplaceListing, InstallationStatus ✅
 │   └── workers/
-│       ├── interpreter.ts     # Processes screenshot queue
-│       └── executor.ts        # Runs automations on schedule
+│       ├── interpreter.ts     # Processes screenshot queue ⬜
+│       └── executor.ts        # Runs automations on schedule ⬜
 ├── prisma/
-│   └── schema.prisma
+│   └── schema.prisma          # Full schema: User, Workflow, Recording, Installation, Execution, AIUsage ✅
 ├── public/
-├── .env.example
-├── package.json
-├── tsconfig.json
-└── tailwind.config.ts
+├── .env                       # Local env (DO NOT COMMIT) ✅
+├── .env.example               # Template for env vars ✅
+├── package.json ✅
+├── tsconfig.json ✅
+├── tailwind.config.ts         # Tailwind v3 + shadcn theme (HSL CSS vars) ✅
+└── postcss.config.mjs ✅
 ```
 
 ## Core Concepts
@@ -453,25 +506,33 @@ Creators publish workflows with a name, description, demo video, required servic
 
 ## Auth0 Token Vault — Implementation Pattern
 
+**Auth0 SDK v4 uses `Auth0Client` (not `initAuth0`).** Auth routes are handled by middleware, not API catch-all routes.
+
 ```typescript
-// lib/auth0.ts
-import { TokenVault } from "@anthropic/auth0-ai-agents";
+// lib/auth0.ts — ACTUAL IMPLEMENTATION
+import { Auth0Client } from "@auth0/nextjs-auth0/server";
+export const auth0 = new Auth0Client();
 
-export async function getTokenForUser(userId: string, service: string) {
-  const token = await tokenVault.getToken({
-    userId,
-    connection: service, // "google", "slack", "linear"
-  });
-  return token.access_token;
+// src/middleware.ts — handles all auth routes
+import { auth0 } from "@/lib/auth0";
+export async function middleware(request: NextRequest) {
+  return await auth0.middleware(request);
 }
+export const config = { matcher: ["/auth/:path*", "/api/:path*"] };
+```
 
-export async function initiateConnection(userId: string, service: string) {
-  // Returns URL for Auth0 consent flow
-  return tokenVault.createAuthorizationURL({
-    userId,
-    connection: service,
-    scopes: SERVICE_SCOPES[service],
-  });
+**Auth0Client key methods (v4):**
+- `auth0.getSession()` — get current user session
+- `auth0.getAccessToken()` — get access token
+- `auth0.getAccessTokenForConnection()` — Token Vault: get token for a specific service
+- `auth0.withApiAuthRequired()` — protect API routes
+- `auth0.withPageAuthRequired()` — protect pages
+
+**Token Vault helpers (TODO — wire up when SDK is configured):**
+```typescript
+export async function getTokenForUser(userId: string, connection: string) {
+  // Use auth0.getAccessTokenForConnection() with the connection name
+  // Returns the access_token for that service from Token Vault
 }
 ```
 
@@ -796,167 +857,147 @@ After learning is complete:
 
 ## Database Schema (Key Tables)
 
-```prisma
-model User {
-  id             String          @id @default(cuid())
-  email          String          @unique
-  auth0Id        String          @unique
-  createdAt      DateTime        @default(now())
-  workflows      Workflow[]
-  installations  Installation[]
-}
+**See `prisma/schema.prisma` for the actual source of truth.** The implemented schema includes:
+- **User** — auth0Id, email, displayName, avatarUrl, soft delete
+- **Workflow** — full reasoning model (steps, rules, edgeCases, variables as JSON), trigger config, marketplace fields
+- **Recording** — learnedSteps, questions, extractedRules, status flow (recording → learning → complete)
+- **Installation** — per-user workflow installs, connected services, unique constraint [userId, workflowId]
+- **Execution** — tracks runs with stepsCompleted/stepsTotal, rulesApplied, variableInputs
+- **AIUsage** — cost tracking per provider/model/operation
 
-model Workflow {
-  id                   String      @id @default(cuid())
-  name                 String
-  description          String
-  creator              User        @relation(fields: [creatorId], references: [id])
-  creatorId            String
-  services             String[]    // required Token Vault connections
-  steps                Json        // WorkflowStep[] (includes reasoning)
-  rules                Json        // LearnedRule[] (IF/THEN logic from Q&A)
-  edgeCases            Json?       // EdgeCase[] (unusual situations)
-  variables            Json        // WorkflowVariable[] (user inputs per run)
-  triggerType          String      @default("manual")
-  triggerConfig        Json?
-  requiresScreenCapture Boolean    @default(false)
-  sourceApp            String?     // "SpectroPro" — app that must be visible
-  isPublished          Boolean     @default(false)
-  price                Float       @default(0)
-  recordings           Recording[]
-  installations        Installation[]
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
-}
-
-model Recording {
-  id             String          @id @default(cuid())
-  workflow       Workflow         @relation(fields: [workflowId], references: [id])
-  workflowId     String
-  learnedSteps   Json            // LearnedStep[] (observation + reasoning per step)
-  questions      Json            // QuestionAnswer[] (full learning conversation)
-  extractedRules Json?           // LearnedRule[] (rules discovered in THIS recording)
-  status         String          @default("recording") // recording | learning | complete
-  createdAt      DateTime        @default(now())
-}
-
-model Installation {
-  id             String          @id @default(cuid())
-  user           User            @relation(fields: [userId], references: [id])
-  userId         String
-  workflow       Workflow         @relation(fields: [workflowId], references: [id])
-  workflowId     String
-  connectedServices String[]     // which Token Vault connections are active
-  isActive       Boolean         @default(true)
-  lastRunAt      DateTime?
-  createdAt      DateTime        @default(now())
-
-  @@unique([userId, workflowId])
-}
-
-model Execution {
-  id             String          @id @default(cuid())
-  installationId String
-  userId         String
-  workflowId     String
-  status         String          @default("running") // running | completed | failed | needs_input
-  stepsCompleted Int             @default(0)
-  stepsTotal     Int
-  rulesApplied   Json?           // which LearnedRules fired during this run
-  variableInputs Json?           // user-provided values for this run
-  error          String?
-  startedAt      DateTime        @default(now())
-  completedAt    DateTime?
-}
-```
+All models have proper indexes on foreign keys and query fields. Uses `prisma-client-js` generator (Prisma 6).
 
 ## Build Order (Phase by Phase)
 
-### Phase 1 — Auth & Foundation
-1. Next.js project scaffold with Tailwind + shadcn/ui
-2. Auth0 integration (login, signup, session)
-3. Token Vault setup — connect Gmail, Sheets, Slack
-4. Prisma schema + database migration
-5. Basic dashboard layout
+### Phase 1 — Auth & Foundation ✅ COMPLETE
+1. ✅ Next.js 14 project scaffold with Tailwind v3 + shadcn/ui (Radix UI)
+2. ✅ Auth0 v4 integration (middleware-based, `Auth0Client`)
+3. ✅ Token Vault helpers stubbed (needs Auth0 tenant credentials to wire up)
+4. ✅ Prisma 6 schema with all 6 models (User, Workflow, Recording, Installation, Execution, AIUsage)
+5. ✅ Dashboard, Record, Workflows, Marketplace, Settings pages with UI
+6. ✅ Service adapters for Gmail, Sheets, Slack (via Token Vault)
+7. ✅ Type system (workflow, action, marketplace types)
+8. ✅ Custom error classes
+9. ✅ Build passing (`npx next build` succeeds)
 
-### Phase 2 — Screen Recording & Visual Data Extraction
-1. `useScreenCapture` hook with MediaStream API
-2. Screenshot pipeline (client → API → temp file → AI provider → delete temp)
-3. AI Vision interpretation endpoint (action recognition + data extraction)
-4. Action timeline UI with extracted data preview
-5. Real-time SSE stream for live action feed
+**Remaining for Phase 1:** Run `npx prisma migrate dev` once PostgreSQL is available.
 
-### Phase 3 — Learning Engine (THE CORE — spend the most time here)
-1. Multi-provider AI setup (Gemini default, OpenAI + Claude as options)
-2. Question generation via AI (identity, reason, rule, edge_case categories)
-3. LearningConversation UI component (screenshot + question + answer)
-4. Rule extraction from Q&A pairs (AI synthesizes IF/THEN logic)
-5. Edge case handling from Q&A
-6. UnderstandingPanel UI (shows learned rules, variables, confidence)
-7. Variable detection (values that change between runs)
-8. Recording status flow: recording → learning → complete
+### Phase 2 — Screen Recording & Visual Data Extraction ✅ REDESIGNED
+1. ✅ `useScreenCapture` hook — `getDisplayMedia()` + periodic JPEG capture every 2s + start/stop/pause/resume
+2. ✅ Screenshot pipeline — client captures frame → POST `/api/capture` → saves to `tmp/screenshots/` → AI provider interprets → action returned → temp file cleaned up on session end
+3. ✅ Multi-provider AI engine — `AIProvider` interface with `GeminiProvider`, `OpenAIProvider`, `AnthropicProvider` adapters; shared `INTERPRET_PROMPT` + `EXTRACT_PROMPT`; `createProvider()` factory
+4. ✅ AI Vision interpretation endpoint — `POST /api/ai/interpret` (standalone) + `POST /api/capture` (integrated pipeline)
+5. ✅ Action timeline UI — `ScreenCapture.tsx` (live preview + REC badge + controls) + `ActionTimeline.tsx` (reverse-chronological action list with extracted data preview, confidence badges)
+6. ✅ Real-time SSE stream — `GET /api/capture/stream?sessionId=xxx` with heartbeat, replay of existing actions, listener-based push
+7. ✅ Record page — full recording interface with inline AI config (provider + API key), screen capture panel, action timeline sidebar, stats bar
+8. ✅ Session management — `lib/sessions.ts` in-memory session store with action history, temp file tracking, SSE listener registry
+9. ✅ Demo mode — works without API key (captures screenshots, returns placeholder actions)
+10. ✅ Build passing (`npx next build` succeeds)
 
-### Phase 4 — Workflow Generation & Execution
-1. AI synthesizes recordings + Q&A into WorkflowTemplate with reasoning
-2. Execution engine that follows learned rules (not just replays steps)
-3. Screen-to-API execution (AI Vision reads live screen → writes to API via Token Vault)
-4. Variable input UI (ask buyer for dilution_factor, etc. before each run)
-5. Conditional step execution (skip email if no failures)
+### Phase 3 — Workflow Inference Engine ✅ REDESIGNED ("Infer First, Ask Later")
+1. ✅ Multi-provider AI setup (done in Phase 2 — Gemini default, OpenAI + Claude as options)
+2. ✅ Question generation via AI (identity, reason, rule, edge_case categories) — `src/lib/ai/learning.ts` + prompts
+3. ✅ ClarifyDialog / ConversationPanel UI (screenshot + question + answer chat interface)
+4. ✅ LearningFlow UI component (full Q&A flow after recording, with ActionReview + ConversationPanel)
+5. ✅ Rule extraction from Q&A pairs (AI synthesizes IF/THEN logic via SYNTHESIS_PROMPT)
+6. ✅ Edge case handling from Q&A (extracted during synthesis, editable in UnderstandingPanel)
+7. ✅ UnderstandingPanel UI (tabbed view: Rules, Edge Cases, Variables, Step Summary — all editable)
+8. ✅ Variable detection (VARIABLE_DETECTION_PROMPT identifies values that change between runs)
+9. ✅ Recording status flow: recording → learning (questioning → synthesizing → reviewing → complete)
 
-### Phase 5 — Marketplace
-1. Publish flow (name, description, price, required apps, demo)
-2. Browse / search marketplace
-3. Install flow with Auth0 consent per service
-4. Run installed automation (with screen capture if needed)
-5. Show which rules the automation uses (transparency for buyers)
+### Phase 4 — Workflow Generation & Execution ✅ COMPLETE
+1. ✅ AI synthesizes recordings + Q&A into WorkflowTemplate with reasoning (`WORKFLOW_GENERATION_PROMPT` + `generateWorkflow()`)
+2. ✅ Execution engine that follows learned rules (`lib/execution.ts` — step-by-step runner with rule evaluation, service calls, variable resolution)
+3. ✅ Screen-to-API execution (AI Vision placeholder for screen reads → writes to Gmail/Sheets/Slack via service adapters)
+4. ✅ Variable input UI (`WorkflowRunner.tsx` — collects user inputs before each run, type coercion, default values)
+5. ✅ Conditional step execution (rule evaluation via AI, step skipping, mid-execution re-evaluation)
+6. ✅ Workflow CRUD API (`/api/workflows` + `/api/workflows/[id]` — create, list, get, update, soft-delete)
+7. ✅ Execution API (`/api/execute` + `/api/execute/[id]` �� start with variable inputs, poll status)
+8. ✅ Workflow UI (`WorkflowCard`, `StepEditor`, `WorkflowRunner`) + updated list page with real data
+9. ✅ Workflow detail page (`/workflows/[id]` — steps, rules, edge cases, variables, recordings, run panel)
+10. ✅ Learning-to-workflow pipeline (finalize generates WorkflowTemplate via AI, saves to DB, redirects to detail page)
+11. ✅ Build passing (`npx next build` succeeds)
 
-### Phase 6 — Polish for Hackathon
-1. Landing page with compelling demo
-2. 3-minute demo video script and recording
-3. Blog post draft
-4. README with setup instructions
-5. Deploy to Vercel + Railway
+### Phase 5 — Marketplace ✅ COMPLETE
+1. ✅ Publish flow — Workflow detail page already has Publish/Unpublish toggle (Phase 4)
+2. ✅ Browse / search marketplace — `/marketplace` page with search, service filters, sort (popular/newest/price)
+3. ✅ Install flow with service connections — `InstallFlow` component simulates Auth0 Token Vault consent per service; POST/DELETE `/api/marketplace/[id]/install`
+4. ✅ Run installed automation — buyers can open installed workflow and use `WorkflowRunner` from Phase 4
+5. ✅ Show rules the automation uses — marketplace detail page has Rules tab with IF/THEN rules + WHEN/THEN edge cases for full transparency
+6. ✅ Marketplace API — `GET /api/marketplace` (list + search + filter + sort), `GET /api/marketplace/[id]` (detail with step/rule/variable previews), install/uninstall endpoints
+7. ✅ Build passing (`npx next build` succeeds)
+
+### Phase 6 — Polish for Hackathon ✅ COMPLETE
+1. ✅ Landing page — full-width hero with gradient, how-it-works, differentiators, live Q&A example, Auth0 Token Vault section, AI providers, CTA
+2. ✅ 3-minute demo video script — `docs/DEMO_SCRIPT.md` with timed sections, speaker notes, and demo tips
+3. ✅ Blog post draft — `docs/BLOG_POST.md` — "The Screen Is the Only API You Need"
+4. ✅ README with setup instructions — complete with prerequisites, env vars, Auth0 config, project structure, deployment guide
+5. Deploy to Vercel + Railway — ready to deploy (environment-dependent, not automatable here)
 
 ## Key Commands
 
 ```bash
+# Infrastructure (Docker required)
+docker-compose up -d     # Start PostgreSQL + Redis containers
+npx prisma migrate dev   # Create/apply database migrations
+npm run db:seed          # Seed demo data (4 workflows, 4 users, marketplace listings)
+npm run db:setup         # Migrate + seed in one command
+
 # Development
-npm run dev              # Start Next.js dev server
-npm run db:push          # Push Prisma schema
-npm run db:seed          # Seed sample data
-npm run worker           # Start BullMQ workers
+npm run dev              # Start Next.js dev server (http://localhost:3000)
+npx prisma generate      # Regenerate Prisma client after schema changes
+npx prisma studio        # Open Prisma visual DB browser
 
 # Production
-npm run build
+npm run build            # Build (currently passing ✅)
 npm run start
-
-# Testing
-npm run test
-npm run test:e2e
 ```
+
+## Current Architecture Decisions (Session 2026-04-05)
+
+### Collect-Then-Process Recording Flow
+Screenshots are collected locally in the browser during recording (every 3s, max 2 min). Zero API calls during recording. After stop, all screenshots are batch-sent to AI with a progress bar. This replaced the original real-time processing which was fragile (hot-reloads killed in-memory sessions, API calls slowed capture).
+
+### "Infer First, Ask Later" Learning
+The original Q&A flow asked 2-4 questions per screenshot (28+ questions for a 1-min recording = terrible UX). Replaced with a single `INFER_WORKFLOW_PROMPT` that analyzes all actions at once and produces the complete workflow. User reviews and confirms instead of answering questions. Old Q&A endpoints still exist but are not the primary flow.
+
+### Client-Side Session Recovery
+All learning endpoints accept a `recovery` context from the client. If the server loses the in-memory session (e.g., hot-reload during dev), the client resends the actions to rebuild it. This makes the flow resilient to server restarts.
+
+### Server-Side API Key Resolution
+AI API keys are resolved server-side: client key → env var fallback. No API key input needed in the frontend for the demo. The `GEMINI_API_KEY` in `.env` is used automatically.
+
+### Gemini 2.5 Flash
+Using `gemini-2.5-flash` (stable, good vision, ~$0.02/demo run). Gemini 2.0 Flash is deprecated. Free tier has 20 req/day limit — billing must be enabled for demo use.
+
+### Token Vault — Gmail & Sheets Only (Demo Scope)
+Service adapters use `auth0.getAccessTokenForConnection("google-oauth2")` to get Google tokens. Slack is stubbed out. Needs: Google OAuth credentials in Auth0 Dashboard + Token Vault enabled on the Auth0 application.
+
+### Demo Data
+`prisma/seed.ts` creates 4 users, 4 workflows (3 published on marketplace, 1 draft), and 2 installations. Run with `npm run db:seed`.
 
 ## Environment Variables
 
+See `.env.example` for the template. Key variables:
+
 ```
-# Auth0
-AUTH0_SECRET=
+# Auth0 (required for auth to work)
+AUTH0_SECRET=             # openssl rand -hex 32
 AUTH0_BASE_URL=http://localhost:3000
 AUTH0_ISSUER_BASE_URL=https://your-tenant.auth0.com
 AUTH0_CLIENT_ID=
 AUTH0_CLIENT_SECRET=
-AUTH0_TOKEN_VAULT_API_KEY=
+
+# Database (required)
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mimicai?schema=public
 
 # AI Providers (users provide their own via Settings UI)
-# These are FALLBACK defaults for development only
-DEFAULT_AI_PROVIDER=gemini           # gemini | openai | anthropic
-GEMINI_API_KEY=                       # default Gemini key (dev only)
-OPENAI_API_KEY=                       # optional
-ANTHROPIC_API_KEY=                    # optional
+DEFAULT_AI_PROVIDER=gemini
+GEMINI_API_KEY=
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
 
-# Database
-DATABASE_URL=postgresql://...
-
-# Redis
+# Redis (required for BullMQ workers)
 REDIS_URL=redis://localhost:6379
 ```
 
@@ -964,8 +1005,8 @@ REDIS_URL=redis://localhost:6379
 
 - **NEVER store OAuth tokens in our database.** All token storage and refresh goes through Auth0 Token Vault. This is the #1 hackathon requirement.
 - **Screenshots are temp files.** Saved to `/tmp/mimicai/` during recording, deleted after AI processes them. Hourly cleanup cron catches orphans. Zero cloud storage.
-- **AI API keys belong to users.** Each user enters their own Gemini/OpenAI/Anthropic key in Settings. We never store keys in our database — encrypt in session or use Auth0 custom claims.
-- **Gemini 2.5 Flash is the default.** Cheapest provider with good vision. Guide users toward it but let them choose.
+- **AI API keys resolved server-side.** For the demo, `GEMINI_API_KEY` in `.env` is used automatically. No key input needed in frontend. In production, users would enter their own keys.
+- **Gemini 2.5 Flash is the default.** Stable model with good vision (~$0.02/demo run). Billing must be enabled — free tier is only 20 req/day.
 - **AI calls must be cost-conscious.** Batch screenshots when possible. Use the cheapest model that gives good vision results.
 - **Every API call to a third-party service must go through a service adapter** in `lib/services/`. No raw fetch calls to Gmail/Slack/etc scattered in components.
 - **Mobile-responsive UI.** Judges may test on mobile.

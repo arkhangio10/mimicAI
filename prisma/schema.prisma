@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  auth0Id       String         @unique
+  displayName   String?
+  avatarUrl     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+
+  workflows     Workflow[]
+  installations Installation[]
+  executions    Execution[]
+  aiUsage       AIUsage[]
+
+  @@index([auth0Id])
+}
+
+model Workflow {
+  id                    String         @id @default(cuid())
+  name                  String
+  description           String         @default("")
+  creator               User           @relation(fields: [creatorId], references: [id])
+  creatorId             String
+  services              String[]
+  steps                 Json           @default("[]")
+  rules                 Json           @default("[]")
+  edgeCases             Json?
+  variables             Json           @default("[]")
+  triggerType           String         @default("manual")
+  triggerConfig         Json?
+  requiresScreenCapture Boolean        @default(false)
+  sourceApp             String?
+  isPublished           Boolean        @default(false)
+  price                 Float          @default(0)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  deletedAt             DateTime?
+
+  recordings    Recording[]
+  installations Installation[]
+
+  @@index([creatorId])
+  @@index([isPublished])
+}
+
+model Recording {
+  id             String   @id @default(cuid())
+  workflow       Workflow  @relation(fields: [workflowId], references: [id])
+  workflowId     String
+  learnedSteps   Json     @default("[]")
+  questions      Json     @default("[]")
+  extractedRules Json?
+  status         String   @default("recording") // recording | learning | complete
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([workflowId])
+  @@index([status])
+}
+
+model Installation {
+  id                String    @id @default(cuid())
+  user              User      @relation(fields: [userId], references: [id])
+  userId            String
+  workflow          Workflow   @relation(fields: [workflowId], references: [id])
+  workflowId        String
+  connectedServices String[]
+  isActive          Boolean   @default(true)
+  lastRunAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  executions Execution[]
+
+  @@unique([userId, workflowId])
+  @@index([userId])
+  @@index([workflowId])
+}
+
+model Execution {
+  id              String       @id @default(cuid())
+  installation    Installation @relation(fields: [installationId], references: [id])
+  installationId  String
+  user            User         @relation(fields: [userId], references: [id])
+  userId          String
+  workflowId      String
+  status          String       @default("running") // running | completed | failed | needs_input
+  stepsCompleted  Int          @default(0)
+  stepsTotal      Int
+  rulesApplied    Json?
+  variableInputs  Json?
+  error           String?
+  startedAt       DateTime     @default(now())
+  completedAt     DateTime?
+
+  @@index([installationId])
+  @@index([userId])
+  @@index([status])
+}
+
+model AIUsage {
+  id            String   @id @default(cuid())
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+  provider      String   // gemini | openai | anthropic
+  model         String
+  inputTokens   Int      @default(0)
+  outputTokens  Int      @default(0)
+  estimatedCost Float    @default(0)
+  operation     String   // interpret | extract | clarify | generate
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([provider])
+}
