@@ -235,6 +235,22 @@ npx prisma migrate dev  # Run migrations
 2. Create a Redis service
 3. Copy connection strings to Vercel env vars
 
+## Bonus Blog Post
+
+### The Moment I Realized the Screen Was the Only API I Needed
+
+When I started building MimicAI, I was obsessed with APIs. Every automation tool I'd used required connectors — Zapier needs a Zapier integration, Make needs a Make module. But then I watched a lab technician manually copy spectrophotometer readings into Google Sheets, one number at a time, because that 15-year-old instrument had no API, no export button, nothing. That was the spark.
+
+What if AI could just *look* at the screen and read the data, the way a human does?
+
+The first prototype was rough. I sent screenshots to Gemini Vision every 2 seconds during recording. It worked — AI could identify apps, read tables, extract values. But the real challenge wasn't reading the screen. It was *understanding intent*. A recording of someone copying numbers tells you nothing about *why* they skip row 9, or *why* certain cells turn red.
+
+That's where Token Vault became essential. MimicAI isn't just a personal macro — it's a marketplace. Creators teach workflows, buyers install them. The moment two different people run the same automation against their own Google accounts, you need bulletproof token isolation. Token Vault solved what would've been weeks of OAuth infrastructure in a single integration. Each user's credentials live entirely inside Auth0 — my database stores zero tokens, zero refresh logic, zero risk.
+
+The hardest technical hurdle was the "Infer First, Ask Later" redesign. My original Q&A flow asked 28+ questions per recording — terrible UX. Switching to a single-pass AI inference that generates the complete workflow, then letting users review and correct, cut the interaction from 15 minutes to under 2. That pivot saved the project.
+
+MimicAI taught me that the best automation doesn't replace humans — it watches them, asks good questions, and learns to think like them.
+
 ## License
 
 MIT
