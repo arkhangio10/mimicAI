@@ -47,3 +47,4 @@ next-env.d.ts
 # root screenshots/images (not part of the app)
 /image*.png
 /logo.png
+CLAUDE.md
