@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth0, CONNECTIONS } from "@/lib/auth0";
 import {
   startExecution,
   validateVariableInputs,
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build WorkflowTemplate from DB record (Prisma Json fields need double cast)
+    // Build WorkflowTemplate from DB record
     const template: WorkflowTemplate = {
       id: workflow.id,
       name: workflow.name,
@@ -75,17 +76,64 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Start execution
+    // Get Google token - try Token Vault first, fall back to Management API
+    let googleToken: string | null = null;
+    try {
+      const tokenResponse = await auth0.getAccessTokenForConnection(
+        { connection: CONNECTIONS.GOOGLE }
+      );
+      googleToken = tokenResponse.token;
+      console.log("[execute] SUCCESS - Got Google token via Token Vault");
+    } catch {
+      // Token Vault failed - get token via Management API
+      try {
+        const session = await auth0.getSession();
+        const auth0UserId = session?.user?.sub;
+        if (auth0UserId) {
+          // Get Management API token
+          const mgmtRes = await fetch(`https://${process.env.AUTH0_DOMAIN}/oauth/token`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              client_id: process.env.AUTH0_CLIENT_ID,
+              client_secret: process.env.AUTH0_CLIENT_SECRET,
+              audience: `https://${process.env.AUTH0_DOMAIN}/api/v2/`,
+              grant_type: "client_credentials",
+            }),
+          });
+          const mgmtData = await mgmtRes.json();
+
+          // Get user's Google identity with IDP tokens
+          const userRes = await fetch(
+            `https://${process.env.AUTH0_DOMAIN}/api/v2/users/${encodeURIComponent(auth0UserId)}?fields=identities&include_fields=true`,
+            { headers: { Authorization: `Bearer ${mgmtData.access_token}` } }
+          );
+          const userData = await userRes.json();
+
+          const googleIdentity = userData.identities?.find(
+            (id: { connection: string }) => id.connection === "google-oauth2"
+          );
+          if (googleIdentity?.access_token) {
+            googleToken = googleIdentity.access_token;
+            console.log("[execute] SUCCESS - Got Google token via Management API");
+          }
+        }
+      } catch (err) {
+        console.error("[execute] Management API fallback failed:", err instanceof Error ? err.message : err);
+      }
+    }
+
+    // Start execution with pre-fetched token
     const execution = await startExecution(
       template,
       userId,
       inputs,
-      aiConfig
+      aiConfig,
+      googleToken
     );
 
     // Create DB record for tracking
     try {
-      // Ensure installation exists
       const installation = await prisma.installation.upsert({
         where: {
           userId_workflowId: { userId, workflowId },
@@ -113,7 +161,6 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch {
-      // DB write failure is non-fatal — execution still runs in memory
       console.warn("[execute] Failed to save execution to DB");
     }
 

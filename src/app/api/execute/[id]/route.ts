@@ -49,6 +49,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         error: execution.error,
         startedAt: execution.startedAt,
         completedAt: execution.completedAt,
+        demoMode: execution.demoMode,
+      }, {
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
       });
     }
 

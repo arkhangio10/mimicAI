@@ -1,125 +1,176 @@
-# MimicAI — 3-Minute Demo Script
+# MimicAI -- 3-Minute Demo Video Script
 
-**Total time: 3:00**
-
----
-
-## [0:00–0:20] Hook — The Problem (20s)
-
-> *Show: Landing page hero*
-
-"Every day, millions of people do the same repetitive task: open one app, read data, switch to another app, type it in. Copy-paste workflows that take 20 minutes but feel like an eternity.
-
-The problem? Most of these source apps have no API. You can't automate what you can't connect to.
-
-**MimicAI changes that.** It reads your screen like a human apprentice — and learns not just WHAT you do, but WHY."
+**Total time: ~3:00**
+**Recording tool:** OBS Studio or Loom (1280x720 recommended)
+**Pre-requisites:** Dev server running (`npm run dev`), DB seeded (`npm run db:seed`), Gemini API key in `.env`
 
 ---
 
-## [0:20–1:00] Record & Teach (40s)
+## Pre-Recording Checklist
 
-> *Show: Click "Start Recording" → Record page*
-
-"Let's say I'm a lab technician copying spectrophotometer readings into Google Sheets every day."
-
-> *Show: Start screen capture → browser shows a spreadsheet and a data source*
-
-"I share my screen and start working normally. MimicAI captures screenshots every 2 seconds and uses AI Vision to read everything on screen — numbers, tables, text — directly from pixels."
-
-> *Show: Action timeline populating with detected actions*
-
-"Watch the action timeline build in real time. MimicAI sees I'm reading data from SpectroPro, switching to Google Sheets, and pasting values."
-
-> *Show: Stop recording → Learning flow appears*
-
-"Now here's where the magic happens. MimicAI doesn't just record a macro — it starts asking questions."
-
-> *Show: Q&A conversation*
-
-"'Why did you skip row 9?' — Because it's a blank control. 'Is 10 always the multiplier?' — No, that's a dilution factor that changes per experiment. 'Why did you color those cells red?' — Because concentrations above 1.5 fail quality control."
+- [ ] Dev server running on localhost:3000
+- [ ] Database seeded with demo data
+- [ ] Browser at 1280x720, clean (no bookmarks bar, no extra tabs)
+- [ ] Have a "source app" ready to record (a spreadsheet with sample data, or any app with visible numbers)
+- [ ] OBS/Loom ready to capture
+- [ ] Script rehearsed at least once
 
 ---
 
-## [1:00–1:30] The Reasoning Model (30s)
+## [0:00 - 0:15] HOOK -- The Problem (15s)
 
-> *Show: Understanding panel with rules, edge cases, variables*
+> *Screen: Landing page hero at localhost:3000*
 
-"From my answers, MimicAI synthesized a reasoning model. Not a dumb sequence — actual intelligence:
+**SAY:**
+"Every day, millions of people manually copy data from one app to another. The source app usually has no API -- it's a lab program, a PDF, a legacy tool. You can't automate what you can't connect to. MimicAI fixes this."
 
-- **Rules**: IF concentration > 1.5 THEN mark as failed
-- **Variables**: dilution_factor — user inputs this each run
-- **Edge cases**: IF all samples pass, no email needed
-
-I can edit any of these rules right here. This is a workflow that THINKS."
-
-> *Show: Click 'Complete' → Workflow detail page*
-
-"One click and it's saved as a workflow. I can test it, tweak it, and when I'm ready..."
+**SHOW:** Landing page with hero text "Teach AI by doing. Sell what it learns." and the "Built with Auth0 Token Vault" badge.
 
 ---
 
-## [1:30–2:00] Publish & Marketplace (30s)
+## [0:15 - 0:25] What Is MimicAI? (10s)
 
-> *Show: Click 'Publish' on workflow detail page*
+> *Screen: Scroll down to "How It Works" section*
 
-"I publish it to the marketplace."
+**SAY:**
+"MimicAI is a platform where you record your screen, AI watches what you do and learns WHY you do it, then you sell that automation on a marketplace. Buyers run it on their own accounts using Auth0 Token Vault."
 
-> *Show: Navigate to Marketplace → browse listings*
-
-"Other scientists can now find my automation. They see exactly what it does — the steps, the rules, the edge cases. Full transparency."
-
-> *Show: Click into a marketplace listing → detail page*
-
-"They can see: 5 steps, 3 rules, 1 variable. It requires Google Sheets and Gmail. And they can see the actual IF/THEN logic — no black box."
+**SHOW:** The 4-step cards: Record, Teach, Automate, Sell.
 
 ---
 
-## [2:00–2:30] Install with Token Vault (30s)
+## [0:25 - 1:10] DEMO -- Recording a Workflow (45s)
 
-> *Show: Install flow panel on the right*
+> *Screen: Click "Start Recording" -> Record page*
 
-"Here's the key part — and this is where **Auth0 Token Vault** comes in."
+**SAY:**
+"Let me show you. I'm a lab technician who copies spectrophotometer readings into Google Sheets every day."
 
-> *Show: Click 'Connect' for Gmail → 'Connect' for Sheets*
+> *Screen: Click "Start Screen Capture" -> browser permission dialog -> select tab/window with data*
 
-"The buyer connects their OWN Gmail and Google Sheets accounts through Auth0's consent flow. Their tokens are stored in Token Vault — never in our database. I, as the creator, never see their credentials."
+**SAY:**
+"I share my screen and work normally. MimicAI captures a screenshot every 2 seconds. No data leaves my machine during recording -- everything stays local."
 
-> *Show: Click 'Install — Free'*
+> *Screen: Work for ~15 seconds (switch between the data source and a spreadsheet, type some values). Show the screenshot counter incrementing.*
 
-"One click to install. Now they can run MY automation on THEIR accounts."
+**SAY:**
+"I've captured 8 screenshots. Now I stop recording and MimicAI analyzes everything at once."
 
-> *Show: Token Vault security notice*
+> *Screen: Click "Stop Recording" -> progress bar appears as AI processes screenshots*
 
-"Zero tokens stored in our database. Per-user credential isolation. Automatic token refresh. This is Auth0 Token Vault doing what it was built for."
+**SAY:**
+"Using Gemini 2.5 Flash Vision, it reads every pixel -- numbers, tables, app names -- and identifies what I did in each screenshot."
 
----
+> *Screen: Progress bar completes -> Review page shows detected actions*
 
-## [2:30–2:50] The Big Picture (20s)
-
-> *Show: Landing page "Not just another Zapier" section*
-
-"Most automation tools replay sequences — they break when anything changes. MimicAI replays UNDERSTANDING.
-
-The screen is the API. Any app that shows data on screen can be automated — legacy software, lab equipment, PDFs, anything.
-
-And the multi-provider AI engine means users choose their own provider: Gemini for $0.23 per session, or GPT-4o and Claude for premium quality."
+**SAY:**
+"Here's what it found: I read data from a source app, switched to Google Sheets, and typed values. Each action has the extracted data and a confidence score."
 
 ---
 
-## [2:50–3:00] Close (10s)
+## [1:10 - 1:40] DEMO -- AI Inference (30s)
 
-> *Show: Landing page hero*
+> *Screen: Click "Generate Workflow" or show the inference step*
 
-"MimicAI. Teach AI by doing. Sell what it learns. Built with Auth0 Token Vault.
+**SAY:**
+"Now the magic. Instead of asking me 30 questions, MimicAI analyzes ALL the actions in one pass and infers the complete workflow -- steps, rules, variables, edge cases."
+
+> *Screen: Show the generated workflow with rules and variables*
+
+**SAY:**
+"It found:
+- A rule: IF concentration is above 1.5, mark as failed.
+- A variable: dilution factor, which changes per experiment.
+- An edge case: skip blank control rows.
+
+I can edit any of these. This isn't a macro -- it's a reasoning model."
+
+> *Screen: Show the rules/variables in the review panel. Maybe edit one rule to show it's editable.*
+
+---
+
+## [1:40 - 2:00] DEMO -- Save & View Workflow (20s)
+
+> *Screen: Click "Save Workflow" -> redirects to workflow detail page*
+
+**SAY:**
+"One click and it's saved. Here's the full workflow with steps, rules, edge cases, and the variables a user needs to input before each run."
+
+> *Screen: Scroll through the workflow detail page showing steps, rules, variables, and the Run panel*
+
+**SAY:**
+"The Run panel asks for the dilution factor before executing. The workflow makes real decisions based on the rules it learned."
+
+---
+
+## [2:00 - 2:25] DEMO -- Marketplace + Token Vault (25s)
+
+> *Screen: Navigate to /marketplace*
+
+**SAY:**
+"Now I publish this to the marketplace. Other users can browse automations, see exactly what rules they use -- full transparency."
+
+> *Screen: Click into a marketplace listing -> show detail page with steps and rules tabs*
+
+**SAY:**
+"Here's where Auth0 Token Vault comes in. When a buyer installs this automation, they connect THEIR OWN Google Sheets and Gmail through Auth0's OAuth flow."
+
+> *Screen: Show the Install panel with service connection buttons*
+
+**SAY:**
+"Their tokens go to Auth0 Token Vault -- never our database. I, as the creator, never see their credentials. Token refresh is automatic. Per-user credential isolation."
+
+> *Screen: Show the "Connect Gmail" and "Connect Google Sheets" buttons, then "Install"*
+
+---
+
+## [2:25 - 2:45] Architecture & Token Vault Deep Dive (20s)
+
+> *Screen: Show code -- `src/lib/auth0.ts` or the Token Vault integration*
+
+**SAY:**
+"Under the hood, we use Auth0 SDK v4 with `getAccessTokenForConnection`. Every API call to Gmail or Sheets goes through Token Vault. Zero tokens in our database. The middleware handles all auth routes."
+
+> *Screen: Briefly show `middleware.ts` or the service adapter code that calls Token Vault*
+
+**SAY:**
+"Service adapters in our codebase call Token Vault to get fresh tokens per-user, per-service. This is the identity layer that makes a multi-tenant marketplace possible."
+
+---
+
+## [2:45 - 3:00] CLOSE -- Why It Matters (15s)
+
+> *Screen: Back to landing page or the "Not just another Zapier" section*
+
+**SAY:**
+"Most automation tools replay sequences. MimicAI replays understanding. The screen IS the API -- any app that shows data on screen can be automated.
+
+Built with Auth0 Token Vault. MimicAI -- teach AI by doing, sell what it learns.
 
 Thank you."
 
 ---
 
-## Demo Tips
+## Recording Tips
 
-- **Pre-seed the database** with 2-3 published workflows so the marketplace isn't empty
-- **Have a mock recording ready** — don't rely on live AI calls during the demo
-- **Resize browser to 1280x720** for clean screen recording
-- **Use the spectrophotometer example** — judges remember concrete stories, not abstract features
-- **Highlight Auth0 Token Vault** at least twice — it's the hackathon requirement
+1. **Rehearse 2-3 times** before the real recording. The 3-minute limit is strict.
+2. **Pre-seed the database** so the marketplace has listings and workflows exist.
+3. **Use a real data source** for the recording demo (even a simple spreadsheet with numbers works).
+4. **Talk slightly slower** than feels natural -- video compression makes fast speech harder to understand.
+5. **Don't worry about perfect AI results** -- the demo shows the flow. If AI output isn't perfect, you can cut/edit the video.
+6. **Mention "Auth0 Token Vault" at least 3 times** -- it's the hackathon requirement.
+7. **Show code briefly** (15-20s max) -- judges want to see it's real, but the product demo matters more.
+8. **Clean browser** -- no personal bookmarks, notifications, or distracting tabs.
+
+## Timing Summary
+
+| Section | Duration | Cumulative |
+|---------|----------|------------|
+| Hook | 15s | 0:15 |
+| What is MimicAI | 10s | 0:25 |
+| Recording demo | 45s | 1:10 |
+| AI Inference | 30s | 1:40 |
+| Save & View | 20s | 2:00 |
+| Marketplace + Token Vault | 25s | 2:25 |
+| Architecture | 20s | 2:45 |
+| Close | 15s | 3:00 |

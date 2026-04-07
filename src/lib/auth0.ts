@@ -1,6 +1,12 @@
 import { Auth0Client } from "@auth0/nextjs-auth0/server";
 
-export const auth0 = new Auth0Client();
+export const auth0 = new Auth0Client({
+  authorizationParameters: {
+    access_type: "offline",
+    prompt: "consent",
+    scope: "openid profile email offline_access",
+  },
+});
 
 // Token Vault connection names (must match Auth0 Dashboard social connections)
 export const CONNECTIONS = {

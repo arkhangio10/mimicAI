@@ -69,10 +69,10 @@ export function Navbar() {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <a href="/api/auth/login">Log in</a>
+              <a href="/auth/login?connection=google-oauth2&access_type=offline&connection_scope=https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/spreadsheets">Log in</a>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <a href="/api/auth/logout">Log out</a>
+              <a href="/auth/logout">Log out</a>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

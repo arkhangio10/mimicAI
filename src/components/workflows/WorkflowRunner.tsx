@@ -21,10 +21,19 @@ import {
   XCircle,
   SkipForward,
   AlertCircle,
+  Monitor,
+  Send,
+  FileSpreadsheet,
+  MessageSquare,
+  RotateCcw,
+  Info,
 } from "lucide-react";
 
 interface StepResult {
   stepId: string;
+  stepName: string;
+  stepType: string;
+  service: string | null;
   status: "success" | "skipped" | "failed";
   output: Record<string, unknown>;
   error?: string;
@@ -37,16 +46,34 @@ interface ExecutionStatus {
   stepsCompleted: number;
   stepsTotal: number;
   stepResults: StepResult[];
-  rulesApplied: string[];
+  rulesApplied: string[] | null;
   error: string | null;
   startedAt: number;
   completedAt: number | null;
+  demoMode: boolean;
 }
 
 interface WorkflowRunnerProps {
   workflowId: string;
   variables: WorkflowVariable[];
   stepCount?: number;
+}
+
+function getStepIcon(type: string, service: string | null) {
+  if (service === "gmail") return <Send className="h-3 w-3" />;
+  if (service === "sheets") return <FileSpreadsheet className="h-3 w-3" />;
+  if (service === "slack") return <MessageSquare className="h-3 w-3" />;
+  if (type === "read_screen") return <Monitor className="h-3 w-3" />;
+  return null;
+}
+
+function getStatusColor(status: string) {
+  switch (status) {
+    case "success": return "border-green-200 bg-green-50";
+    case "skipped": return "border-muted bg-muted/30";
+    case "failed": return "border-red-200 bg-red-50";
+    default: return "";
+  }
 }
 
 export function WorkflowRunner({
@@ -73,18 +100,21 @@ export function WorkflowRunner({
 
     const poll = setInterval(async () => {
       try {
-        const res = await fetch(`/api/execute/${executionId}`);
+        const res = await fetch(`/api/execute/${executionId}?t=${Date.now()}`, {
+          cache: "no-store",
+        });
         if (!res.ok) return;
         const data = await res.json();
         setExecution(data);
 
         if (data.status === "completed" || data.status === "failed") {
+          clearInterval(poll);
           setIsRunning(false);
         }
       } catch {
         // Polling failure — will retry
       }
-    }, 1000);
+    }, 500);
 
     return () => clearInterval(poll);
   }, [executionId, isRunning]);
@@ -96,7 +126,7 @@ export function WorkflowRunner({
 
     // Convert string inputs to proper types
     const typedInputs: Record<string, unknown> = {};
-    for (const v of variables) {
+    for (const v of safeVariables) {
       const raw = inputs[v.name];
       if (raw === undefined || raw === "") {
         if (v.default != null) typedInputs[v.name] = v.default;
@@ -134,12 +164,21 @@ export function WorkflowRunner({
       setError(err instanceof Error ? err.message : "Failed to start");
       setIsRunning(false);
     }
-  }, [workflowId, variables, inputs]);
+  }, [workflowId, safeVariables, inputs]);
+
+  const resetExecution = useCallback(() => {
+    setExecution(null);
+    setExecutionId(null);
+    setError(null);
+    setIsRunning(false);
+  }, []);
 
   const progressPct =
     execution && execution.stepsTotal > 0
       ? Math.round((execution.stepsCompleted / execution.stepsTotal) * 100)
       : 0;
+
+  const isComplete = execution?.status === "completed" || execution?.status === "failed";
 
   return (
     <Card>
@@ -156,7 +195,7 @@ export function WorkflowRunner({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Variable Inputs */}
-        {userInputVars.length > 0 && (
+        {userInputVars.length > 0 && !execution && (
           <div className="space-y-3">
             {userInputVars.map((v) => (
               <div key={v.name} className="space-y-1">
@@ -188,36 +227,44 @@ export function WorkflowRunner({
           </div>
         )}
 
-        {/* Run Button */}
-        <Button
-          onClick={startRun}
-          disabled={isRunning}
-          className="w-full"
-        >
-          {isRunning ? (
-            <>
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              Running...
-            </>
-          ) : (
-            <>
-              <Play className="mr-1.5 h-3.5 w-3.5" />
-              Run Workflow
-            </>
-          )}
-        </Button>
+        {/* Run / Reset Button */}
+        {isComplete ? (
+          <Button onClick={resetExecution} variant="outline" className="w-full">
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+            Run Again
+          </Button>
+        ) : (
+          <Button
+            onClick={startRun}
+            disabled={isRunning}
+            className="w-full"
+          >
+            {isRunning ? (
+              <>
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                Running...
+              </>
+            ) : (
+              <>
+                <Play className="mr-1.5 h-3.5 w-3.5" />
+                Run Workflow
+              </>
+            )}
+          </Button>
+        )}
 
         {/* Error */}
         {error && (
-          <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 rounded-md px-3 py-2">
-            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-            {error}
+          <div className="flex items-start gap-2 text-xs text-destructive bg-destructive/10 rounded-md px-3 py-2">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>{error}</span>
           </div>
         )}
 
         {/* Execution Progress */}
         {execution && (
           <div className="space-y-3">
+            {/* Status header */}
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium capitalize flex items-center gap-1.5">
                 {execution.status === "completed" && (
@@ -239,37 +286,56 @@ export function WorkflowRunner({
             <Progress value={progressPct} />
 
             {/* Step Results */}
-            {execution.stepResults?.length > 0 && (
-              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            {execution.stepResults && execution.stepResults.length > 0 && (
+              <div className="space-y-1.5 max-h-64 overflow-y-auto">
                 {execution.stepResults.map((sr, idx) => (
                   <div
                     key={sr.stepId}
-                    className="flex items-center gap-2 text-xs rounded-md border px-2.5 py-1.5"
+                    className={`flex items-center gap-2 text-xs rounded-md border px-2.5 py-2 ${getStatusColor(sr.status)}`}
                   >
                     {sr.status === "success" && (
-                      <CheckCircle className="h-3 w-3 text-green-600 shrink-0" />
+                      <CheckCircle className="h-3.5 w-3.5 text-green-600 shrink-0" />
                     )}
                     {sr.status === "skipped" && (
-                      <SkipForward className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <SkipForward className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     )}
                     {sr.status === "failed" && (
-                      <XCircle className="h-3 w-3 text-destructive shrink-0" />
+                      <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
                     )}
-                    <span className="truncate">
-                      Step {idx + 1}: {sr.status}
-                    </span>
-                    {sr.error && (
-                      <span className="text-destructive ml-auto truncate max-w-[200px]">
-                        {sr.error}
-                      </span>
-                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">Step {idx + 1}</span>
+                        {getStepIcon(sr.stepType, sr.service)}
+                        <span className="truncate text-muted-foreground">
+                          {sr.stepName || sr.stepType}
+                        </span>
+                      </div>
+                      {sr.error && (
+                        <p className="text-destructive mt-0.5 truncate">
+                          {sr.error}
+                        </p>
+                      )}
+                      {sr.output?._demo && (
+                        <span className="text-blue-600 text-[10px]">simulated</span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             )}
 
+            {/* Waiting indicator for in-progress steps */}
+            {execution.status === "running" && execution.stepsCompleted < execution.stepsTotal && (
+              <div className="flex items-center gap-2 text-xs rounded-md border border-dashed px-2.5 py-2 text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                <span>
+                  Running step {execution.stepsCompleted + 1} of {execution.stepsTotal}...
+                </span>
+              </div>
+            )}
+
             {/* Rules Applied */}
-            {execution.rulesApplied.length > 0 && (
+            {execution.rulesApplied && execution.rulesApplied.length > 0 && (
               <div className="text-[10px] text-muted-foreground">
                 Rules applied: {execution.rulesApplied.join(", ")}
               </div>
@@ -277,8 +343,9 @@ export function WorkflowRunner({
 
             {/* Execution error */}
             {execution.error && (
-              <div className="text-xs text-destructive bg-destructive/10 rounded-md px-3 py-2">
-                {execution.error}
+              <div className="flex items-start gap-2 text-xs text-destructive bg-destructive/10 rounded-md px-3 py-2">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>{execution.error}</span>
               </div>
             )}
 
